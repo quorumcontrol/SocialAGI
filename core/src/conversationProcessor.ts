@@ -23,6 +23,10 @@ export type Message = {
   text: string;
 };
 
+export interface ConversationalContext {
+  toString(): string;
+}
+
 export enum ParticipationStrategy {
   ALWAYS_REPLY,
   CONSUME_ONLY,
@@ -40,10 +44,12 @@ export class ConversationProcessor extends EventEmitter {
   private generatedThoughts: Thought[] = [];
   private msgQueue: string[] = [];
   private followupTimeout: NodeJS.Timeout | null = null;
+  private context: ConversationalContext;
 
-  constructor(blueprint: Blueprint) {
+  constructor(blueprint: Blueprint, context?: ConversationalContext) {
     super();
 
+    this.context = context || "";
     this.blueprint = blueprint;
 
     this.peopleMemory = new PeopleMemory(this.blueprint);
@@ -308,6 +314,7 @@ Use the following output format:
           essence: this.blueprint.essence,
           personality: this.blueprint.personality || "",
           languageProcessor: this.blueprint.languageProcessor,
+          context: this.context.toString(),
         };
         systemProgram = getIntrospectiveSystemProgram(vars);
         remembranceProgram = getIntrospectiveRemembranceProgram(vars);
@@ -318,6 +325,7 @@ Use the following output format:
           initialPlan: this.blueprint.initialPlan,
           essence: this.blueprint.essence,
           personality: this.blueprint.personality || "",
+          context: this.context.toString(),
         };
         systemProgram = getReflectiveLPSystemProgram(vars);
         break;

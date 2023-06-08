@@ -2,6 +2,7 @@ import { LanguageProcessor } from "./lmStream";
 import { EventEmitter } from "events";
 import { Blueprint, ThoughtFramework } from "./blueprint";
 import {
+  ConversationalContext,
   ConversationProcessor,
   Message,
   ParticipationStrategy,
@@ -11,12 +12,20 @@ type ConversationStore = {
   [convoName: string]: ConversationProcessor;
 };
 
+interface SoulOptions {
+  additionalContext?: ConversationalContext;
+}
+
 export class Soul extends EventEmitter {
   conversations: ConversationStore = {};
   public blueprint: Blueprint;
 
-  constructor(blueprint: Blueprint) {
+  private additionalContext: ConversationalContext;
+
+  constructor(blueprint: Blueprint, soulOptions: SoulOptions = {}) {
     super();
+
+    this.additionalContext = soulOptions.additionalContext || "";
 
     this.blueprint = blueprint;
     // soul blueprint validation
@@ -28,7 +37,7 @@ export class Soul extends EventEmitter {
       this.blueprint.languageProcessor !== LanguageProcessor.GPT_4
     ) {
       throw new Error(
-        "ReflectiveLP ThoughtFramework requires the GPT4 language processor"
+        "ReflectiveLP ThoughtFramework requires the GPT4 language processor",
       );
     }
   }
@@ -43,7 +52,7 @@ export class Soul extends EventEmitter {
 
   private getConversation(convoName: string): ConversationProcessor {
     if (!Object.keys(this.conversations).includes(convoName)) {
-      this.conversations[convoName] = new ConversationProcessor(this.blueprint);
+      this.conversations[convoName] = new ConversationProcessor(this.blueprint, this.additionalContext);
       this.conversations[convoName].on("thinks", (thought) => {
         this.emit("thinks", thought, convoName);
       });
@@ -68,7 +77,7 @@ export class Soul extends EventEmitter {
   public read(
     msg: Message,
     participationStrategy: ParticipationStrategy,
-    convoName = "default"
+    convoName = "default",
   ): void {
     this.getConversation(convoName).read(msg, participationStrategy);
   }

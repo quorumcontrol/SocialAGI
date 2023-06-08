@@ -2,7 +2,9 @@ import * as readline from "readline";
 import { Blueprints, Soul } from "../src";
 
 const blueprint = Blueprints.SAMANTHA;
-const soul = new Soul(Blueprints.SAMANTHA);
+const soul = new Soul(Blueprints.SAMANTHA, {
+  additionalContext: `Samantha is texting someone new at MeetSamantha.ai. The time and date is: ${new Date().toLocaleString()}}`,
+});
 
 soul.on("says", (text: string) => {
   console.log(`👱 ${blueprint.name} says: \x1b[34m${text}\x1b[0m`);

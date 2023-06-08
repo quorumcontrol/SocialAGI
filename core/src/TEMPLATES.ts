@@ -5,6 +5,7 @@ export interface IReflectiveLPSystemPrompt {
   initialPlan?: string;
   essence: string;
   personality: string;
+  context: string;
 }
 
 export function getReflectiveLPSystemProgram(vars: IReflectiveLPSystemPrompt) {
@@ -16,7 +17,7 @@ export function getReflectiveLPSystemProgram(vars: IReflectiveLPSystemPrompt) {
     vars.personality !== "" ? "" : `I am alive, I am: ${vars.personality}`;
   return `Initialize {
    I am ${vars.name}, ${vars.essence}
-   
+   ${vars.context ? `\n${vars.context}\n` : ""}
    ${initialPlan}
    
    ${personality}
@@ -49,6 +50,7 @@ export interface IIntrospectiveSystemProgram {
   essence: string;
   personality: string;
   languageProcessor: LanguageProcessor;
+  context?: string;
 }
 
 export function getIntrospectiveSystemProgram(
@@ -60,7 +62,7 @@ export function getIntrospectiveSystemProgram(
       : "";
   return `<Background>
 You are modeling the mind of ${vars.name}, ${vars.essence}
-
+${vars.context ? `\n${vars.context}\n` : ""}
 ${vars.personality}
 </Background>
 
@@ -96,6 +98,7 @@ export interface IIntrospectiveRemembranceProgram {
   essence: string;
   personality: string;
   languageProcessor: LanguageProcessor;
+  context?: string;
 }
 
 export function getIntrospectiveRemembranceProgram(
