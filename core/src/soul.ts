@@ -7,6 +7,7 @@ import {
   Message,
   ParticipationStrategy,
 } from "./conversationProcessor";
+import { Action } from "./action";
 
 type ConversationStore = {
   [convoName: string]: ConversationProcessor;
@@ -14,18 +15,21 @@ type ConversationStore = {
 
 interface SoulOptions {
   additionalContext?: ConversationalContext;
+  actions?: Action[];
 }
 
 export class Soul extends EventEmitter {
   conversations: ConversationStore = {};
   public blueprint: Blueprint;
 
-  private additionalContext: ConversationalContext;
+  public additionalContext: ConversationalContext;
+  public actions: Action[];
 
   constructor(blueprint: Blueprint, soulOptions: SoulOptions = {}) {
     super();
 
     this.additionalContext = soulOptions.additionalContext || "";
+    this.actions = soulOptions.actions || [];
 
     this.blueprint = blueprint;
     // soul blueprint validation
@@ -52,7 +56,7 @@ export class Soul extends EventEmitter {
 
   private getConversation(convoName: string): ConversationProcessor {
     if (!Object.keys(this.conversations).includes(convoName)) {
-      this.conversations[convoName] = new ConversationProcessor(this.blueprint, this.additionalContext);
+      this.conversations[convoName] = new ConversationProcessor(this);
       this.conversations[convoName].on("thinks", (thought) => {
         this.emit("thinks", thought, convoName);
       });
