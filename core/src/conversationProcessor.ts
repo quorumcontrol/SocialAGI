@@ -73,7 +73,7 @@ export class ConversationProcessor extends EventEmitter {
       name: "rambleAfterResponding",
       description:
         "If you want to continue talking, without waiting for a response. Use YES or NO as input.",
-      execute: (input: string) => {
+      execute: (input: string, _soul, _conversation) => {
         devLog(`executing ramble action with input: ${input}`);
         if (input.toLowerCase() === "no") {
           return;
@@ -84,7 +84,7 @@ export class ConversationProcessor extends EventEmitter {
             entity: this.blueprint.name,
             action: "RAMBLE",
             content: "I want to ramble before they respond",
-          }),
+          })
         );
         this.continueThinking();
       },
