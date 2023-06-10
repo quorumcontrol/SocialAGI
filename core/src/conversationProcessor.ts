@@ -48,17 +48,17 @@ export class ConversationProcessor extends EventEmitter {
   private followupTimeout: NodeJS.Timeout | null = null;
   private context: ConversationalContext;
 
-  constructor(soul: Soul) {
+  constructor(soul: Soul, context: ConversationalContext) {
     super();
 
     this.soul = soul;
-    this.context = soul.additionalContext || "";
+    this.context = context;
     this.blueprint = soul.blueprint;
 
     this.peopleMemory = new PeopleMemory(this.blueprint);
     this.thoughtGenerator = new ThoughtGenerator(
       this.blueprint.languageProcessor,
-      this.blueprint.name,
+      this.blueprint.name
     );
     this.thoughtGenerator.on(NeuralEvents.newThought, (thought: Thought) => {
       this.onNewThought(thought);

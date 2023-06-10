@@ -14,7 +14,7 @@ type ConversationStore = {
 };
 
 interface SoulOptions {
-  additionalContext?: ConversationalContext;
+  defaultContext?: ConversationalContext;
   actions?: Action[];
 }
 
@@ -22,13 +22,13 @@ export class Soul extends EventEmitter {
   conversations: ConversationStore = {};
   public blueprint: Blueprint;
 
-  public additionalContext: ConversationalContext;
+  public defaultContext: ConversationalContext;
   public actions: Action[];
 
   constructor(blueprint: Blueprint, soulOptions: SoulOptions = {}) {
     super();
 
-    this.additionalContext = soulOptions.additionalContext || "";
+    this.defaultContext = soulOptions.defaultContext || "";
     this.actions = soulOptions.actions || [];
 
     this.blueprint = blueprint;
@@ -54,9 +54,15 @@ export class Soul extends EventEmitter {
     return Object.values(this.conversations);
   }
 
-  private getConversation(convoName: string): ConversationProcessor {
+  public getConversation(
+    convoName: string,
+    context?: ConversationalContext
+  ): ConversationProcessor {
     if (!Object.keys(this.conversations).includes(convoName)) {
-      this.conversations[convoName] = new ConversationProcessor(this);
+      this.conversations[convoName] = new ConversationProcessor(
+        this,
+        context || this.defaultContext
+      );
       this.conversations[convoName].on("thinks", (thought) => {
         this.emit("thinks", thought, convoName);
       });
