@@ -9,9 +9,7 @@ class TimeContext {
   }
 }
 
-const soul = new Soul(Blueprints.SAMANTHA, {
-  disableSayDelay: true,
-});
+const soul = new Soul(Blueprints.SAMANTHA);
 
 const conversation = soul.getConversation("example", new TimeContext());
 
