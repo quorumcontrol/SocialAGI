@@ -32,7 +32,7 @@ const mentalModelForUser = (soul, userName) => {
   if (!userMemory) {
     throw new Error("no user memory");
   }
-  return userMemory.toPrompt();
+  return userMemory.toLinguisticProgram();
 }
 
 test("test sorrowful conversation history accumulates", async () => {

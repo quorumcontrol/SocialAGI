@@ -33,7 +33,7 @@ export class PeopleMemory implements MentalModel {
     );
   }
 
-  public toPrompt(conversation: ConversationProcessor): string {
+  public toLinguisticProgram(conversation: ConversationProcessor): string {
     const userNames = conversation.thoughts
       .filter((t) => t.memory.role === "user")
       .map((t) => t.memory.entity);
@@ -49,6 +49,6 @@ export class PeopleMemory implements MentalModel {
     if (!memory) {
       return "";
     }
-    return memory.toPrompt(conversation);
+    return memory.toLinguisticProgram(conversation);
   }
 }

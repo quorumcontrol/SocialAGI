@@ -10,7 +10,7 @@ import { ConversationProcessor } from "./conversationProcessor";
 
 export interface MentalModel {
   update: (thoughts: Thought[], conversation: ConversationProcessor) => void;
-  toPrompt: (conversation: ConversationProcessor) => string | undefined;
+  toLinguisticProgram: (conversation: ConversationProcessor) => string | undefined;
 }
 
 export class PersonModel implements MentalModel {
@@ -29,7 +29,7 @@ export class PersonModel implements MentalModel {
     this.observerBlueprint = observerBlueprint;
   }
 
-  public toPrompt(_conversation: ConversationProcessor) {
+  public toLinguisticProgram(_conversation: ConversationProcessor) {
     return `<CONTEXT>To date, ${this.observerBlueprint.name} remembers the following about ${this.name}, including records of their NAME, basic FACTS, current HISTORY narrative, personal GOALS, MOOD, and MENTAL STATE.</CONTEXT>
 
 Their historical memory, which may include blanks yet to be learned from conversation, reads:
@@ -112,7 +112,7 @@ and reads
       {
         role: ChatCompletionRequestMessageRoleEnum.System,
         content:
-          this.toPrompt(conversation) +
+          this.toLinguisticProgram(conversation) +
           `\n\nThen, the following messages were exchanged.`,
       },
     ];

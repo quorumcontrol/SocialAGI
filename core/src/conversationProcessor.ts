@@ -393,25 +393,25 @@ Use the following output format:
       this.thoughts,
       systemProgram,
       remembranceProgram,
-      this.mentalModelPrompt(),
+      this.mentalModelLinguisticProgram()
     );
     // devLog("\n💬\n" + messages.map((m) => m.content).join(", ") + "\n💬\n");
     this.thoughtGenerator.generate(messages);
   }
 
-  private mentalModelPrompt(): MRecord | undefined {
+  private mentalModelLinguisticProgram(): MRecord | undefined {
     try {
-      const prompts = this.mentalModels
-        .map((m) => m.toPrompt(this))
+      const mentalModelprograms = this.mentalModels
+        .map((m) => m.toLinguisticProgram(this))
         .filter(Boolean);
 
-      if (!prompts) {
+      if (!mentalModelprograms) {
         return;
       }
 
       return {
         role: "assistant",
-        content: prompts.join("\n"),
+        content: mentalModelprograms.join("\n"),
         name: this.blueprint.name,
       } as MRecord;
     } catch (err: any) {
