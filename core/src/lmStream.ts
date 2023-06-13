@@ -131,7 +131,6 @@ export class ThoughtGenerator extends EventEmitter {
     // TODO: upstream lib parses stream chunks correctly but sometimes emits a spurious error
     //   open PR to silence non-fatal errors in https://github.com/justinmahar/openai-ext
     devLog("New stream");
-    console.log("records", records)
     const openaiStreamResponse = await OpenAIExt.streamServerChatCompletion(
       {
         model: this.languageProcessor,
