@@ -1,4 +1,4 @@
-const { Blueprints, Soul, ParticipationStrategy } = require("../src");
+const { Blueprints, Soul } = require("../src");
 
 function delay(milliseconds) {
   return new Promise((resolve) => {
@@ -89,7 +89,7 @@ test("test CONSUME participation replies to each message", async () => {
       messages.push({ userName: "sam", text: message })
     );
     for (const message of messagesToRead) {
-      soul.read(message, ParticipationStrategy.CONSUME_ONLY);
+      soul.read(message, true);
       messages.push(message);
       await delay(5000);
     }

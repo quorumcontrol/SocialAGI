@@ -1,7 +1,6 @@
 const { getTag } = require("../src/lmProcessing");
 const { Blueprints } = require("../src/blueprint");
 const { Soul } = require("../src/soul");
-const { ParticipationStrategy } = require("../src/soul");
 const { isAbstractTrue, AbstractSample } = require("../src/testing");
 const { PeopleMemory } = require("../src/memory");
 
@@ -219,7 +218,7 @@ test("test multiple people conversing yield separate mental models", async () =>
       { userName: "user122", text: "I like dogs" },
     ];
     for (const message of messagesToRead) {
-      soul.read(message, ParticipationStrategy.CONSUME_ONLY);
+      soul.read(message, true);
       await delay(3000);
     }
     return soul;
