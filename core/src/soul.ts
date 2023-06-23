@@ -17,7 +17,6 @@ import {
   OpenAILanguageProgramProcessor,
   OpenAIStreamingChat,
 } from "./languageModels/openAI";
-import { ParticipationStrategyClass } from "./programs/participationStrategies/ParticipationStrategy";
 
 type ConversationStore = {
   [convoName: string]: ConversationProcessor;
@@ -124,7 +123,7 @@ export class Soul extends EventEmitter {
     this.getConversation(convoName).seesTyping();
   }
 
-  public read(msg: Message, consumeOnly = false, convoName = "default"): void {
-    this.getConversation(convoName).read(msg, consumeOnly);
+  public read(msg: Message, convoName = "default"): void {
+    this.getConversation(convoName).read(msg);
   }
 }

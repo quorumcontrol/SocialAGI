@@ -383,7 +383,7 @@ export class ConversationProcessor extends EventEmitter {
     }
   }
 
-  public async read(msg: Message, consumeOnly = false) {
+  public async read(msg: Message) {
     const memory = new Memory({
       role: ChatMessageRoleEnum.User,
       entity: msg.userName,
@@ -394,13 +394,10 @@ export class ConversationProcessor extends EventEmitter {
     this.mentalModels.forEach((m) => m.update([memory], this));
     this.thoughts.push(memory);
 
-    if (consumeOnly) {
-      return;
-    }
-
     if (!this.participationStrategy) {
       return;
     }
+
     if (this.followupTimeout !== null) {
       clearTimeout(this.followupTimeout as NodeJS.Timeout);
       this.followupTimeout = null;
