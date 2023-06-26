@@ -1,9 +1,11 @@
-import { MentalModel, PersonModel } from "./mentalModels";
-import { Blueprint } from "./blueprint";
-import { ConversationProcessor } from "./conversationProcessor";
-import { ChatMessageRoleEnum } from "./languageModels";
-import { Thought } from "./languageModels/memory";
-import { Soul } from "./soul";
+import { PersonModel } from "./PersonModel";
+import { Blueprint } from "../../blueprint";
+import { ConversationProcessor } from "../../conversationProcessor";
+import { ChatMessageRoleEnum } from "../../languageModels";
+import { Thought } from "../../languageModels/memory";
+import { Soul } from "../../soul";
+import { StreamOfConsciousness } from "../../linguisticProgramBuilder";
+import { MentalModel } from "../index";
 
 interface MentalModels {
   [key: string]: PersonModel;
@@ -14,15 +16,42 @@ export class PeopleMemory implements MentalModel {
   private readonly observerBlueprint: Blueprint;
   private readonly soul: Soul;
 
+  public id = "internal-people-memory";
+
   constructor(soul: Soul) {
     this.memory = {};
     this.soul = soul;
     this.observerBlueprint = soul.blueprint;
   }
 
+  async process(
+    stream: StreamOfConsciousness,
+    conversation: ConversationProcessor
+  ) {
+    const myMessage = stream.messages.find((msg) => {
+      return msg.creator === this.id;
+    });
+
+    if (myMessage) {
+      myMessage.content = this.toLinguisticProgram(conversation);
+      return stream;
+    }
+
+    return {
+      ...stream,
+      messages: stream.messages.concat([
+        {
+          role: ChatMessageRoleEnum.Assistant,
+          content: this.toLinguisticProgram(conversation),
+          name: conversation.blueprint.name,
+        },
+      ]),
+    };
+  }
+
   public async update(
     thoughts: Thought[],
-    conversation: ConversationProcessor,
+    conversation: ConversationProcessor
   ) {
     const { entity: name } = thoughts[0].memory;
     if (name === undefined) {
@@ -33,7 +62,7 @@ export class PeopleMemory implements MentalModel {
       this.memory[name] = new PersonModel(this.soul, name);
     }
     return await Promise.all(
-      Object.values(this.memory).map((m) => m.update(thoughts, conversation)),
+      Object.values(this.memory).map((m) => m.update(thoughts, conversation))
     );
   }
 

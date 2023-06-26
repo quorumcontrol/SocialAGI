@@ -6,8 +6,7 @@ import {
   Message,
 } from "./conversationProcessor";
 import { Action } from "./action";
-import { MentalModel } from "./mentalModels";
-import { PeopleMemory } from "./memory";
+import { PeopleMemory } from "./mentalModels/PeopleMemory/PeopleMemory";
 import {
   ChatCompletionStreamer,
   LanguageModelProgramExecutor,
@@ -17,6 +16,9 @@ import {
   OpenAILanguageProgramProcessor,
   OpenAIStreamingChat,
 } from "./languageModels/openAI";
+import { MentalModel } from "./mentalModels";
+import { Personality } from "./mentalModels/Personality";
+import { ConversationCompressor } from "./mentalModels/ConversationCompressor";
 
 type ConversationStore = {
   [convoName: string]: ConversationProcessor;
@@ -28,7 +30,7 @@ const blueprintToStreamer = (blueprint: Blueprint): ChatCompletionStreamer => {
       {},
       {
         model: Model.GPT_4,
-      },
+      }
     );
   }
   return new OpenAIStreamingChat();
@@ -52,7 +54,7 @@ export class Soul extends EventEmitter {
 
   public actions: Action[];
   readonly options: SoulOptions;
-  readonly mentalModels: MentalModel[];
+  public mentalModels: MentalModel[];
 
   public chatStreamer: ChatCompletionStreamer;
   public languageProgramExecutor: LanguageModelProgramExecutor;
@@ -64,8 +66,11 @@ export class Soul extends EventEmitter {
     this.actions = soulOptions.actions || [];
     this.blueprint = blueprint;
 
-    this.mentalModels = soulOptions.mentalModels ||
-      [new PeopleMemory(this)];
+    this.mentalModels = soulOptions.mentalModels || [
+      new ConversationCompressor(),
+      new Personality(this.blueprint),
+      new PeopleMemory(this),
+    ];
 
     // soul blueprint validation
     if (this.blueprint?.thoughtFramework === undefined) {
@@ -76,17 +81,22 @@ export class Soul extends EventEmitter {
       this.blueprint.languageProcessor !== Model.GPT_4
     ) {
       throw new Error(
-        "ReflectiveLP ThoughtFramework requires the GPT4 language processor",
+        "ReflectiveLP ThoughtFramework requires the GPT4 language processor"
       );
     }
-    this.chatStreamer = soulOptions.chatStreamer ||
-      blueprintToStreamer(blueprint);
-    this.languageProgramExecutor = soulOptions.languageProgramExecutor ||
+    this.chatStreamer =
+      soulOptions.chatStreamer || blueprintToStreamer(blueprint);
+    this.languageProgramExecutor =
+      soulOptions.languageProgramExecutor ||
       new OpenAILanguageProgramProcessor();
   }
 
   public reset(): void {
     this.getConversations().map((c) => c.reset());
+  }
+
+  public setMentalModels(models: MentalModel[]) {
+    this.mentalModels = models;
   }
 
   private getConversations(): ConversationProcessor[] {
