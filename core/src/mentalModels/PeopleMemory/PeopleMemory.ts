@@ -4,7 +4,6 @@ import { ConversationProcessor } from "../../conversationProcessor";
 import { ChatMessageRoleEnum } from "../../languageModels";
 import { Thought } from "../../languageModels/memory";
 import { Soul } from "../../soul";
-import { StreamOfConsciousness } from "../../linguisticProgramBuilder";
 import { MentalModel } from "../index";
 
 interface MentalModels {
@@ -24,28 +23,15 @@ export class PeopleMemory implements MentalModel {
     this.observerBlueprint = soul.blueprint;
   }
 
-  async process(
-    stream: StreamOfConsciousness,
-    conversation: ConversationProcessor
-  ) {
-    const myMessage = stream.messages.find((msg) => {
-      return msg.creator === this.id;
-    });
-
-    if (myMessage) {
-      myMessage.content = this.toLinguisticProgram(conversation);
-      return stream;
-    }
-
+  async toLinguisticProgram(conversation: ConversationProcessor) {
     return {
-      ...stream,
-      messages: stream.messages.concat([
+      beginningMessages: [
         {
           role: ChatMessageRoleEnum.Assistant,
-          content: this.toLinguisticProgram(conversation),
+          content: this.toMessageContent(conversation),
           name: conversation.blueprint.name,
         },
-      ]),
+      ],
     };
   }
 
@@ -66,7 +52,7 @@ export class PeopleMemory implements MentalModel {
     );
   }
 
-  public toLinguisticProgram(conversation: ConversationProcessor): string {
+  private toMessageContent(conversation: ConversationProcessor): string {
     const userNames = conversation.thoughts
       .filter((t) => t.memory.role === ChatMessageRoleEnum.User)
       .map((t) => t.memory.entity);

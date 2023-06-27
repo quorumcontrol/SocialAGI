@@ -19,7 +19,6 @@ import {
 import { MentalModel } from "./mentalModels";
 import { Personality } from "./mentalModels/Personality";
 import { ConversationCompressor } from "./mentalModels/ConversationCompressor";
-import { Rememberance } from "./mentalModels/Rememberance";
 
 type ConversationStore = {
   [convoName: string]: ConversationProcessor;
@@ -71,7 +70,6 @@ export class Soul extends EventEmitter {
       new ConversationCompressor(),
       new Personality(this.blueprint),
       new PeopleMemory(this),
-      new Rememberance(),
     ];
 
     // soul blueprint validation
@@ -110,10 +108,14 @@ export class Soul extends EventEmitter {
     options?: ConversationOptions
   ): ConversationProcessor {
     if (!Object.keys(this.conversations).includes(convoName)) {
-      this.conversations[convoName] = new ConversationProcessor(this, {
-        ...(this.options.defaultConversationOptions || {}),
-        ...(options || {}),
-      });
+      this.conversations[convoName] = new ConversationProcessor(
+        this,
+        convoName,
+        {
+          ...(this.options.defaultConversationOptions || {}),
+          ...(options || {}),
+        }
+      );
       this.conversations[convoName].on("thinks", (thought) => {
         this.emit("thinks", thought, convoName);
       });

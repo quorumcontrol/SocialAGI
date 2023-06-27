@@ -1,6 +1,6 @@
 import { ConversationProcessor } from "../conversationProcessor";
 import { Thought } from "../languageModels/memory";
-import { StreamOfConsciousness } from "../linguisticProgramBuilder";
+import { ProgramOutput } from "../linguisticProgramBuilder";
 
 /**
  * Mental models are processors on a stream from a group of conversation messages (or none) that
@@ -9,8 +9,7 @@ import { StreamOfConsciousness } from "../linguisticProgramBuilder";
  */
 export interface MentalModel {
   update: (thoughts: Thought[], conversation: ConversationProcessor) => void;
-  process: (
-    stream: StreamOfConsciousness,
+  toLinguisticProgram: (
     conversation: ConversationProcessor
-  ) => Promise<StreamOfConsciousness>;
+  ) => Promise<Partial<ProgramOutput>>;
 }

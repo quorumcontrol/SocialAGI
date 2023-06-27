@@ -9,10 +9,7 @@ import { Memory, Thought } from "./languageModels/memory";
 import { ParticipationStrategy, ParticipationStrategyClass } from "./programs";
 import { MentalModel } from "./mentalModels";
 import { rambleAction } from "./actions/ramble";
-import {
-  createBlankStreamOfConsciousness,
-  streamOfConsciousnessToProgram,
-} from "./linguisticProgramBuilder";
+import { mergePrograms } from "./linguisticProgramBuilder";
 
 export type Message = {
   userName: string;
@@ -25,6 +22,7 @@ export interface ConversationOptions {
 
 export class ConversationProcessor extends EventEmitter {
   private thoughtGenerator: ThoughtGenerator;
+  public name: string;
 
   public soul: Soul;
   public blueprint: Blueprint;
@@ -40,8 +38,9 @@ export class ConversationProcessor extends EventEmitter {
 
   public mentalModels: MentalModel[];
 
-  constructor(soul: Soul, options: ConversationOptions) {
+  constructor(soul: Soul, name: string, options: ConversationOptions) {
     super();
+    this.name = name;
     this.msgQueue = [];
     this.thoughts = [];
     this.generatedThoughts = [];
@@ -241,18 +240,15 @@ export class ConversationProcessor extends EventEmitter {
     this.emit("thinking");
     devLog("🧠 SOUL is starting thinking...");
 
-    const messages = ConversationProcessor.thoughtsToRecords(this.thoughts);
-
-    let stream = createBlankStreamOfConsciousness(messages);
-    for (const mentalModel of this.mentalModels) {
-      stream = await mentalModel.process(stream, this);
-    }
+    const programs = await Promise.all(
+      this.mentalModels.map((m) => m.toLinguisticProgram(this))
+    );
 
     // let systemProgram, remembranceProgram, vars;
     switch (this.blueprint.thoughtFramework) {
       case ThoughtFramework.Introspective:
         return this.thoughtGenerator.generate(
-          streamOfConsciousnessToProgram(this.soul, stream)
+          mergePrograms(this.soul, programs)
         );
       default:
         throw Error("unknown thought framework");

@@ -1,13 +1,21 @@
 import { ConversationProcessor } from "../conversationProcessor";
-import { StreamOfConsciousness } from "../linguisticProgramBuilder";
+import { ChatMessage } from "../languageModels";
+import { Memory } from "../languageModels/memory";
 import { MentalModel } from "./index";
 
+const memoryToOutput = (memory: Memory) => {
+  return `<${memory.memory.action}>${memory.memory.content}</${memory.memory.action}>`;
+};
+
 export class ConversationCompressor implements MentalModel {
-  async process(
-    stream: StreamOfConsciousness,
-    _conversation: ConversationProcessor
-  ) {
-    const initialMessages = stream.messages;
+  private conversations: Record<string, ChatMessage[]>;
+
+  constructor() {
+    this.conversations = {};
+  }
+
+  async toLinguisticProgram(conversation: ConversationProcessor) {
+    const initialMessages = this.conversations[conversation.name] || [];
 
     let truncatedMessages = initialMessages;
     if (initialMessages.length > 10) {
@@ -31,12 +39,26 @@ export class ConversationCompressor implements MentalModel {
     }
 
     return {
-      ...stream,
-      messages: truncatedMessages,
+      trailingMessages: truncatedMessages,
     };
   }
 
-  update() {
-    return;
+  update(memories: Memory[], conversation: ConversationProcessor) {
+    this.conversations[conversation.name] ||= [];
+    memories.forEach((memory) => {
+      const lastMessage = this.conversations[conversation.name].slice(-1)[0];
+      if (lastMessage && lastMessage.name === memory.memory.entity) {
+        lastMessage.content += `${memoryToOutput(memory)}\n`;
+        return;
+      }
+
+      const newMessage: ChatMessage = {
+        role: memory.memory.role,
+        content: `${memoryToOutput(memory)}\n`,
+        name: memory.memory.entity,
+      };
+
+      this.conversations[conversation.name].push(newMessage);
+    });
   }
 }

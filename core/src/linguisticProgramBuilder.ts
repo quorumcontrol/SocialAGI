@@ -17,25 +17,14 @@ export interface ActionTag {
 
 export type MarkedMessage = ChatMessage & { creator?: string };
 
-export interface StreamOfConsciousness {
+export interface ProgramOutput {
   context: ContextTag[];
   output: OutputTag[];
   rememberances: string[];
   actions: ActionTag[];
-  messages: MarkedMessage[];
+  beginningMessages: MarkedMessage[];
+  trailingMessages: MarkedMessage[];
 }
-
-export const createBlankStreamOfConsciousness = (
-  messages: ChatMessage[] = []
-): StreamOfConsciousness => {
-  return {
-    context: [],
-    output: [],
-    rememberances: [],
-    actions: [],
-    messages,
-  };
-};
 
 const groupedTags = <T extends ContextTag>(tags: T[]): Record<string, T[]> => {
   return tags.reduce((acc, tag) => {
@@ -94,19 +83,26 @@ const actionsToLinguisticPartial = (
 };
 
 // This takes the output of a linguisticprogram pipeline (currently called MentalModel) and compiles it into a chat prompt for the LLM to process.
-export const streamOfConsciousnessToProgram = (
+export const mergePrograms = (
   soul: Soul,
-  stream: StreamOfConsciousness
+  programOutputs: Partial<ProgramOutput>[]
 ): ChatMessage[] => {
-  const messages = stream.messages;
+  const systemContextMessage = contextToLinguistPartial(
+    programOutputs.flatMap((p) => p.context || [])
+  );
+  const systemActionText = actionsToLinguisticPartial(
+    soul,
+    programOutputs.flatMap((p) => p.actions || [])
+  );
 
-  const systemContextMessage = contextToLinguistPartial(stream.context);
-  const systemActionText = actionsToLinguisticPartial(soul, stream.actions);
+  const outputPartial = outputToLinguisticPartial(
+    programOutputs.flatMap((p) => p.output || [])
+  );
+
   const outputSystemMessage = `
 After receiving a new message, you will perform an introspection sequence that models ${soul.blueprint.name}'s cognition. You respond in the following form:
 
-${outputToLinguisticPartial(stream.output)}
-
+${outputPartial}
 `.trim();
 
   const system: ChatMessage = {
@@ -122,5 +118,25 @@ ${outputSystemMessage}
     name: soul.blueprint.name,
   };
 
-  return [system].concat(messages);
+  const rememberance: ChatMessage = {
+    role: ChatMessageRoleEnum.System,
+    content: `
+
+${programOutputs.flatMap((p) => p.rememberances || []).join("\n")}
+
+Now, think through ${
+      soul.blueprint.name
+    }'s response to the last message using the following output format.
+${outputPartial}
+<END />
+
+`.trim(),
+    name: soul.blueprint.name,
+  };
+
+  const messages = programOutputs
+    .flatMap((p) => p.beginningMessages || [])
+    .concat(programOutputs.flatMap((p) => p.trailingMessages || []));
+
+  return [system].concat(messages).concat([rememberance]);
 };
