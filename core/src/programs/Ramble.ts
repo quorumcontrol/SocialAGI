@@ -1,8 +1,8 @@
 import { rambleAction } from "../actions/ramble";
-import { MentalModel } from "./index";
+import { ConversationalProgram } from "./index";
 
-export class RambleProgram implements MentalModel {
-  async toLinguisticProgram() {
+export class RambleProgram implements ConversationalProgram {
+  async toOutput() {
     return {
       actions: [rambleAction],
     };

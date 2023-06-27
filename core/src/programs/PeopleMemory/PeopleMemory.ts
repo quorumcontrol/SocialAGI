@@ -4,13 +4,13 @@ import { ConversationProcessor } from "../../conversationProcessor";
 import { ChatMessageRoleEnum } from "../../languageModels";
 import { Thought } from "../../languageModels/memory";
 import { Soul } from "../../soul";
-import { MentalModel } from "../index";
+import { ConversationalProgram } from "../index";
 
 interface MentalModels {
   [key: string]: PersonModel;
 }
 
-export class PeopleMemory implements MentalModel {
+export class PeopleMemory implements ConversationalProgram {
   public memory: MentalModels;
   private readonly observerBlueprint: Blueprint;
   private readonly soul: Soul;
@@ -23,7 +23,7 @@ export class PeopleMemory implements MentalModel {
     this.observerBlueprint = soul.blueprint;
   }
 
-  async toLinguisticProgram(conversation: ConversationProcessor) {
+  async toOutput(conversation: ConversationProcessor) {
     const content = this.toMessageContent(conversation);
     if (content) {
       return {

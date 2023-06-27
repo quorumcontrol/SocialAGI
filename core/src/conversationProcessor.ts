@@ -6,7 +6,7 @@ import { Soul } from "./soul";
 import { ChatMessageRoleEnum } from "./languageModels";
 import { Memory, Thought } from "./languageModels/memory";
 import { ParticipationStrategy, ParticipationStrategyClass } from "./programs";
-import { MentalModel } from "./mentalModels";
+import { ConversationalProgram } from "./programs";
 import { ProgramOutput, mergePrograms } from "./linguisticProgramBuilder";
 
 export type Message = {
@@ -34,7 +34,7 @@ export class ConversationProcessor extends EventEmitter {
 
   private sayWaitDisabled? = false;
 
-  public mentalModels: MentalModel[];
+  public conversationalPrograms: ConversationalProgram[];
 
   public currentPrograms: Partial<ProgramOutput>[];
 
@@ -52,7 +52,7 @@ export class ConversationProcessor extends EventEmitter {
       this.participationStrategy = new options.participationStrategy(this);
     }
 
-    this.mentalModels = soul.mentalModels;
+    this.conversationalPrograms = soul.conversationalPrograms;
 
     this.thoughtGenerator = new ThoughtGenerator(
       this.soul.chatStreamer,
@@ -174,7 +174,9 @@ export class ConversationProcessor extends EventEmitter {
     devLog("🧠 SOUL finished thinking");
 
     this.thoughts = this.thoughts.concat(this.generatedThoughts);
-    this.mentalModels.forEach((m) => m.update(this.generatedThoughts, this));
+    this.conversationalPrograms.forEach((m) =>
+      m.update(this.generatedThoughts, this)
+    );
 
     this.generatedThoughts = [];
 
@@ -242,7 +244,7 @@ export class ConversationProcessor extends EventEmitter {
     devLog("🧠 SOUL is starting thinking...");
 
     this.currentPrograms = await Promise.all(
-      this.mentalModels.map((m) => m.toLinguisticProgram(this))
+      this.conversationalPrograms.map((m) => m.toOutput(this))
     );
 
     // let systemProgram, remembranceProgram, vars;
@@ -264,7 +266,7 @@ export class ConversationProcessor extends EventEmitter {
       content: text,
     });
 
-    this.mentalModels.forEach((m) => m.update([memory], this));
+    this.conversationalPrograms.forEach((m) => m.update([memory], this));
 
     this.thoughts.push(memory);
     this.think();
@@ -288,7 +290,7 @@ export class ConversationProcessor extends EventEmitter {
       content: msg.text,
     });
 
-    this.mentalModels.forEach((m) => m.update([memory], this));
+    this.conversationalPrograms.forEach((m) => m.update([memory], this));
     this.thoughts.push(memory);
 
     if (!this.participationStrategy) {

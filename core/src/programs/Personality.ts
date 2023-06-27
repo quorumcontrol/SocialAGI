@@ -1,16 +1,16 @@
-import { MentalModel } from ".";
+import { ConversationalProgram } from ".";
 import { Blueprint } from "../blueprint";
 import { ConversationProcessor } from "../conversationProcessor";
 import { ContextTag } from "../linguisticProgramBuilder";
 
-export class Personality implements MentalModel {
+export class Personality implements ConversationalProgram {
   blueprint: Blueprint;
 
   constructor(blueprint: Blueprint) {
     this.blueprint = blueprint;
   }
 
-  async toLinguisticProgram(_conversation: ConversationProcessor) {
+  async toOutput(_conversation: ConversationProcessor) {
     const plan: ContextTag | undefined = this.blueprint.initialPlan
       ? {
           name: "plan",

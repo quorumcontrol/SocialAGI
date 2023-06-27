@@ -5,7 +5,7 @@ import {
   ConversationProcessor,
   Message,
 } from "./conversationProcessor";
-import { PeopleMemory } from "./mentalModels/PeopleMemory/PeopleMemory";
+import { PeopleMemory } from "./programs/PeopleMemory/PeopleMemory";
 import {
   ChatCompletionStreamer,
   LanguageModelProgramExecutor,
@@ -15,10 +15,10 @@ import {
   OpenAILanguageProgramProcessor,
   OpenAIStreamingChat,
 } from "./languageModels/openAI";
-import { MentalModel } from "./mentalModels";
-import { Personality } from "./mentalModels/Personality";
-import { ConversationCompressor } from "./mentalModels/ConversationCompressor";
-import { RambleProgram } from "./mentalModels/Ramble";
+import { ConversationalProgram } from "./programs";
+import { Personality } from "./programs/Personality";
+import { ConversationCompressor } from "./programs/ConversationCompressor";
+import { RambleProgram } from "./programs/Ramble";
 
 type ConversationStore = {
   [convoName: string]: ConversationProcessor;
@@ -41,7 +41,7 @@ interface SoulOptions {
   // if you want to always get the entire "say" thought instead of streaming it out sentence by sentence,
   // then turn on "disableSayDelay"
   disableSayDelay?: boolean;
-  mentalModels?: MentalModel[];
+  conversationalPrograms?: ConversationalProgram[];
   chatStreamer?: ChatCompletionStreamer;
   languageProgramExecutor?: LanguageModelProgramExecutor;
   defaultConversationOptions?: ConversationOptions;
@@ -52,7 +52,7 @@ export class Soul extends EventEmitter {
   public blueprint: Blueprint;
 
   readonly options: SoulOptions;
-  public mentalModels: MentalModel[];
+  public conversationalPrograms: ConversationalProgram[];
 
   public chatStreamer: ChatCompletionStreamer;
   public languageProgramExecutor: LanguageModelProgramExecutor;
@@ -63,7 +63,7 @@ export class Soul extends EventEmitter {
     this.options = soulOptions;
     this.blueprint = blueprint;
 
-    this.mentalModels = soulOptions.mentalModels || [
+    this.conversationalPrograms = soulOptions.conversationalPrograms || [
       new ConversationCompressor(),
       new Personality(this.blueprint),
       new PeopleMemory(this),
@@ -93,8 +93,8 @@ export class Soul extends EventEmitter {
     this.getConversations().map((c) => c.reset());
   }
 
-  public setMentalModels(models: MentalModel[]) {
-    this.mentalModels = models;
+  public setMentalModels(models: ConversationalProgram[]) {
+    this.conversationalPrograms = models;
   }
 
   private getConversations(): ConversationProcessor[] {

@@ -1,20 +1,20 @@
 import { ConversationProcessor } from "../conversationProcessor";
 import { ChatMessage } from "../languageModels";
 import { Memory } from "../languageModels/memory";
-import { MentalModel } from "./index";
+import { ConversationalProgram } from "./index";
 
 const memoryToOutput = (memory: Memory) => {
   return `<${memory.memory.action}>${memory.memory.content}</${memory.memory.action}>`;
 };
 
-export class ConversationCompressor implements MentalModel {
+export class ConversationCompressor implements ConversationalProgram {
   private conversations: Record<string, ChatMessage[]>;
 
   constructor() {
     this.conversations = {};
   }
 
-  async toLinguisticProgram(conversation: ConversationProcessor) {
+  async toOutput(conversation: ConversationProcessor) {
     const initialMessages = this.conversations[conversation.name] || [];
 
     let truncatedMessages = initialMessages;
