@@ -5,7 +5,6 @@ import {
   ConversationProcessor,
   Message,
 } from "./conversationProcessor";
-import { Action } from "./action";
 import { PeopleMemory } from "./mentalModels/PeopleMemory/PeopleMemory";
 import {
   ChatCompletionStreamer,
@@ -19,6 +18,7 @@ import {
 import { MentalModel } from "./mentalModels";
 import { Personality } from "./mentalModels/Personality";
 import { ConversationCompressor } from "./mentalModels/ConversationCompressor";
+import { RambleProgram } from "./mentalModels/Ramble";
 
 type ConversationStore = {
   [convoName: string]: ConversationProcessor;
@@ -41,7 +41,6 @@ interface SoulOptions {
   // if you want to always get the entire "say" thought instead of streaming it out sentence by sentence,
   // then turn on "disableSayDelay"
   disableSayDelay?: boolean;
-  actions?: Action[];
   mentalModels?: MentalModel[];
   chatStreamer?: ChatCompletionStreamer;
   languageProgramExecutor?: LanguageModelProgramExecutor;
@@ -52,7 +51,6 @@ export class Soul extends EventEmitter {
   conversations: ConversationStore = {};
   public blueprint: Blueprint;
 
-  public actions: Action[];
   readonly options: SoulOptions;
   public mentalModels: MentalModel[];
 
@@ -63,13 +61,13 @@ export class Soul extends EventEmitter {
     super();
 
     this.options = soulOptions;
-    this.actions = soulOptions.actions || [];
     this.blueprint = blueprint;
 
     this.mentalModels = soulOptions.mentalModels || [
       new ConversationCompressor(),
       new Personality(this.blueprint),
       new PeopleMemory(this),
+      new RambleProgram(),
     ];
 
     // soul blueprint validation

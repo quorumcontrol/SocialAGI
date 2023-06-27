@@ -3,13 +3,11 @@ import { EventEmitter } from "events";
 import { Blueprint, ThoughtFramework } from "./blueprint";
 import { devLog } from "./utils";
 import { Soul } from "./soul";
-import { Action } from "./action";
 import { ChatMessageRoleEnum } from "./languageModels";
 import { Memory, Thought } from "./languageModels/memory";
 import { ParticipationStrategy, ParticipationStrategyClass } from "./programs";
 import { MentalModel } from "./mentalModels";
-import { rambleAction } from "./actions/ramble";
-import { mergePrograms } from "./linguisticProgramBuilder";
+import { ProgramOutput, mergePrograms } from "./linguisticProgramBuilder";
 
 export type Message = {
   userName: string;
@@ -38,12 +36,15 @@ export class ConversationProcessor extends EventEmitter {
 
   public mentalModels: MentalModel[];
 
+  public currentPrograms: Partial<ProgramOutput>[];
+
   constructor(soul: Soul, name: string, options: ConversationOptions) {
     super();
     this.name = name;
     this.msgQueue = [];
     this.thoughts = [];
     this.generatedThoughts = [];
+    this.currentPrograms = [];
     this.soul = soul;
     this.blueprint = soul.blueprint;
     this.sayWaitDisabled = soul.options.disableSayDelay;
@@ -68,10 +69,6 @@ export class ConversationProcessor extends EventEmitter {
   // TODO: let listeners get updated on this?
   addGeneratedThought(thought: Thought) {
     this.generatedThoughts.push(thought);
-  }
-
-  private availableActions(): Action[] {
-    return [rambleAction].concat(this.soul.actions);
   }
 
   public reset() {
@@ -123,6 +120,10 @@ export class ConversationProcessor extends EventEmitter {
         this.emit("says", thought.memory.content);
       }
     }
+  }
+
+  private availableActions() {
+    return this.currentPrograms.flatMap((p) => p.actions || []);
   }
 
   private handleInternalCognitionThought(thought: Thought) {
@@ -240,7 +241,7 @@ export class ConversationProcessor extends EventEmitter {
     this.emit("thinking");
     devLog("🧠 SOUL is starting thinking...");
 
-    const programs = await Promise.all(
+    this.currentPrograms = await Promise.all(
       this.mentalModels.map((m) => m.toLinguisticProgram(this))
     );
 
@@ -248,7 +249,7 @@ export class ConversationProcessor extends EventEmitter {
     switch (this.blueprint.thoughtFramework) {
       case ThoughtFramework.Introspective:
         return this.thoughtGenerator.generate(
-          mergePrograms(this.soul, programs)
+          mergePrograms(this.soul, this.currentPrograms)
         );
       default:
         throw Error("unknown thought framework");

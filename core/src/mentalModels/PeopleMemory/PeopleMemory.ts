@@ -24,15 +24,19 @@ export class PeopleMemory implements MentalModel {
   }
 
   async toLinguisticProgram(conversation: ConversationProcessor) {
-    return {
-      beginningMessages: [
-        {
-          role: ChatMessageRoleEnum.Assistant,
-          content: this.toMessageContent(conversation),
-          name: conversation.blueprint.name,
-        },
-      ],
-    };
+    const content = this.toMessageContent(conversation);
+    if (content) {
+      return {
+        beginningMessages: [
+          {
+            role: ChatMessageRoleEnum.Assistant,
+            content: this.toMessageContent(conversation),
+            name: conversation.blueprint.name,
+          },
+        ],
+      };
+    }
+    return {};
   }
 
   public async update(

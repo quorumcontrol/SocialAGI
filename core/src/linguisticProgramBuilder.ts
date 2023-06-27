@@ -1,3 +1,4 @@
+import { Action } from "./action";
 import { ChatMessage, ChatMessageRoleEnum } from "./languageModels";
 import { Soul } from "./soul";
 
@@ -10,18 +11,13 @@ export interface OutputTag extends ContextTag {
   optional?: boolean;
 }
 
-export interface ActionTag {
-  name: string;
-  description: string;
-}
-
 export type MarkedMessage = ChatMessage & { creator?: string };
 
 export interface ProgramOutput {
   context: ContextTag[];
   output: OutputTag[];
   rememberances: string[];
-  actions: ActionTag[];
+  actions: Action[];
   beginningMessages: MarkedMessage[];
   trailingMessages: MarkedMessage[];
 }
@@ -55,8 +51,31 @@ const contextToLinguistPartial = (context: ContextTag[]): string => {
     .join("\n");
 };
 
-export const outputToLinguisticPartial = (output: OutputTag[]): string => {
+// optional: <ACTION>[[choose from ${actionNames}]]</ACTION>
+// optional: <ACTION_INPUT>[[fill in any input to the action]]</ACTION_INPUT>
+
+export const outputToLinguisticPartial = (
+  output: OutputTag[],
+  actions: Action[]
+): string => {
   const groupedOutputTags = groupedTags(output);
+  if (actions.length > 0) {
+    groupedOutputTags["action"] = [
+      {
+        name: "action",
+        content: `[[choose from ${actions.map((a) => a.name).join(", ")}]]`,
+        optional: true,
+      },
+    ];
+    groupedOutputTags["action_input"] = [
+      {
+        name: "action_input",
+        content: `[[fill in any input to the action]]`,
+        optional: true,
+      },
+    ];
+  }
+
   return Object.keys(groupedOutputTags)
     .map((tagName) => {
       const tags = groupedOutputTags[tagName];
@@ -66,20 +85,17 @@ export const outputToLinguisticPartial = (output: OutputTag[]): string => {
     .join("\n");
 };
 
-const actionsToLinguisticPartial = (
-  soul: Soul,
-  actions: ActionTag[]
-): string => {
+const actionsToLinguisticPartial = (soul: Soul, actions: Action[]): string => {
   return `
-  <Actions>
-    ${soul.blueprint.name} can (optionally) take any of the following actions:
-   ${actions
-     .map((a) => {
-       return `${a.name}: ${a.description}`;
-     })
-     .join("\n  ")}
-  </Actions>
-    `.trim();
+<Actions>
+  ${soul.blueprint.name} can (optionally) take any of the following actions:
+  ${actions
+    .map((a) => {
+      return `${a.name}: ${a.description}`;
+    })
+    .join("\n  ")}
+</Actions>
+  `.trim();
 };
 
 // This takes the output of a linguisticprogram pipeline (currently called MentalModel) and compiles it into a chat prompt for the LLM to process.
@@ -96,7 +112,8 @@ export const mergePrograms = (
   );
 
   const outputPartial = outputToLinguisticPartial(
-    programOutputs.flatMap((p) => p.output || [])
+    programOutputs.flatMap((p) => p.output || []),
+    programOutputs.flatMap((p) => p.actions || [])
   );
 
   const outputSystemMessage = `
