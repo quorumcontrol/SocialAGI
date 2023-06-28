@@ -130,7 +130,7 @@ ${systemContextMessage}
 ${systemActionText}
 
 ${outputSystemMessage}
-<END />,
+<END />
       `.trim(),
     name: soul.blueprint.name,
   };
