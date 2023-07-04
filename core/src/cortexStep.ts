@@ -61,8 +61,8 @@ function toCamelCase(str: string) {
     .join("");
 }
 
-interface CoretexStepOptions {
-  pastCoretexStep?: CortexStep;
+interface CortexStepOptions {
+  pastCortexStep?: CortexStep;
   processor?: LanguageModelProgramExecutor;
   memories?: WorkingMemory;
   lastValue?: CortexValue;
@@ -76,16 +76,16 @@ export class CortexStep {
   private readonly extraNextActions: NextActions;
   private readonly processor: LanguageModelProgramExecutor;
 
-  constructor(entityName: string, options?: CoretexStepOptions) {
+  constructor(entityName: string, options?: CortexStepOptions) {
     this.entityName = entityName;
-    const pastCortexStep = options?.pastCoretexStep;
+    const pastCortexStep = options?.pastCortexStep;
     this.memories = options?.memories || pastCortexStep?.memories || [];
     this._lastValue = options?.lastValue || pastCortexStep?.lastValue || null;
 
     this.extraNextActions = {};
     this.processor =
       options?.processor ||
-      options?.pastCoretexStep?.processor ||
+      options?.pastCortexStep?.processor ||
       new OpenAILanguageProgramProcessor();
   }
 
@@ -96,7 +96,7 @@ export class CortexStep {
   public withMemory(memory: CortexStepMemory): CortexStep {
     const nextMemories = this.memories.concat(memory);
     return new CortexStep(this.entityName, {
-      pastCoretexStep: this,
+      pastCortexStep: this,
       memories: nextMemories,
     });
   }
@@ -226,7 +226,7 @@ ${beginning}${nextValue}</${action}></${this.entityName}>
         .map((s) => toCamelCase(s)) as string[];
     }
     return new CortexStep(this.entityName, {
-      pastCoretexStep: this,
+      pastCortexStep: this,
       lastValue: outputAsList ? parsedNextValue : nextValue,
       memories: nextMemories,
     });
