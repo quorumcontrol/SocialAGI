@@ -5,10 +5,6 @@ import { isAbstractTrue } from "./testing";
 
 type CortexStepMemory = ChatMessage[];
 type WorkingMemory = CortexStepMemory[];
-type PastCortexStep = {
-  lastValue?: null | string;
-  memories: WorkingMemory;
-};
 type InternalMonologueSpec = {
   action: string;
   description?: string;
@@ -66,49 +62,43 @@ function toCamelCase(str: string) {
 }
 
 interface CoretexStepOptions {
+  pastCoretexStep?: CortexStep;
   processor?: LanguageModelProgramExecutor;
+  memories?: WorkingMemory;
+  lastValue?: CortexValue;
 }
 
 // TODO - try something with fxn call api
 export class CortexStep {
   private readonly entityName: string;
   private readonly _lastValue: CortexValue;
-  private readonly memories: WorkingMemory;
+  protected readonly memories: WorkingMemory;
   private readonly extraNextActions: NextActions;
   private readonly processor: LanguageModelProgramExecutor;
-  private readonly options: CoretexStepOptions;
 
-  constructor(
-    entityName: string,
-    pastCortexStep?: PastCortexStep,
-    options?: CoretexStepOptions
-  ) {
+  constructor(entityName: string, options?: CoretexStepOptions) {
     this.entityName = entityName;
-    if (pastCortexStep?.memories) {
-      this.memories = pastCortexStep.memories;
-    } else {
-      this.memories = [];
-    }
-    if (pastCortexStep?.lastValue) {
-      this._lastValue = pastCortexStep.lastValue;
-    } else {
-      this._lastValue = null;
-    }
+    const pastCortexStep = options?.pastCoretexStep;
+    this.memories = options?.memories || pastCortexStep?.memories || [];
+    this._lastValue = options?.lastValue || pastCortexStep?.lastValue || null;
+
     this.extraNextActions = {};
-    this.options = options || {};
-    this.processor = options?.processor || new OpenAILanguageProgramProcessor();
+    this.processor =
+      options?.processor ||
+      options?.pastCoretexStep?.processor ||
+      new OpenAILanguageProgramProcessor();
+  }
+
+  protected get lastValue() {
+    return this._lastValue;
   }
 
   public withMemory(memory: CortexStepMemory): CortexStep {
     const nextMemories = this.memories.concat(memory);
-    return new CortexStep(
-      this.entityName,
-      {
-        lastValue: this.value,
-        memories: nextMemories,
-      } as PastCortexStep,
-      this.options
-    );
+    return new CortexStep(this.entityName, {
+      pastCoretexStep: this,
+      memories: nextMemories,
+    });
   }
 
   private get messages(): ChatMessage[] {
@@ -235,14 +225,11 @@ ${beginning}${nextValue}</${action}></${this.entityName}>
         .split(",")
         .map((s) => toCamelCase(s)) as string[];
     }
-    return new CortexStep(
-      this.entityName,
-      {
-        lastValue: outputAsList ? parsedNextValue : nextValue,
-        memories: nextMemories,
-      } as PastCortexStep,
-      this.options
-    );
+    return new CortexStep(this.entityName, {
+      pastCoretexStep: this,
+      lastValue: outputAsList ? parsedNextValue : nextValue,
+      memories: nextMemories,
+    });
   }
 
   public async queryMemory(query: string): Promise<string> {
