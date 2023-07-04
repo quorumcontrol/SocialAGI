@@ -1,5 +1,5 @@
 /* eslint-disable no-case-declarations */
-import { ChatMessage } from "./languageModels";
+import { ChatMessage, LanguageModelProgramExecutor } from "./languageModels";
 import { OpenAILanguageProgramProcessor } from "./languageModels/openAI";
 import { isAbstractTrue } from "./testing";
 
@@ -65,14 +65,24 @@ function toCamelCase(str: string) {
     .join("");
 }
 
+interface CoretexStepOptions {
+  processor?: LanguageModelProgramExecutor;
+}
+
 // TODO - try something with fxn call api
 export class CortexStep {
   private readonly entityName: string;
   private readonly _lastValue: CortexValue;
   private readonly memories: WorkingMemory;
   private readonly extraNextActions: NextActions;
+  private readonly processor: LanguageModelProgramExecutor;
+  private readonly options: CoretexStepOptions;
 
-  constructor(entityName: string, pastCortexStep?: PastCortexStep) {
+  constructor(
+    entityName: string,
+    pastCortexStep?: PastCortexStep,
+    options?: CoretexStepOptions
+  ) {
     this.entityName = entityName;
     if (pastCortexStep?.memories) {
       this.memories = pastCortexStep.memories;
@@ -85,14 +95,20 @@ export class CortexStep {
       this._lastValue = null;
     }
     this.extraNextActions = {};
+    this.options = options || {};
+    this.processor = options?.processor || new OpenAILanguageProgramProcessor();
   }
 
   public withMemory(memory: CortexStepMemory): CortexStep {
     const nextMemories = this.memories.concat(memory);
-    return new CortexStep(this.entityName, {
-      lastValue: this.value,
-      memories: nextMemories,
-    } as PastCortexStep);
+    return new CortexStep(
+      this.entityName,
+      {
+        lastValue: this.value,
+        memories: nextMemories,
+      } as PastCortexStep,
+      this.options
+    );
   }
 
   private get messages(): ChatMessage[] {
@@ -139,7 +155,7 @@ export class CortexStep {
 
   public async next(
     type: Action | string,
-    spec: NextSpec,
+    spec: NextSpec
   ): Promise<CortexStep> {
     switch (type) {
       case Action.INTERNAL_MONOLOGUE:
@@ -184,7 +200,7 @@ export class CortexStep {
   }
 
   private async generateAction(
-    spec: ActionCompletionSpec,
+    spec: ActionCompletionSpec
   ): Promise<CortexStep> {
     const { action, prefix, description, outputAsList } = spec;
     const beginning = `<${this.entityName}><${action}>${prefix || ""}`;
@@ -200,15 +216,9 @@ Reply in the output format: ${beginning}[[fill in]]</${action}>
       },
     ] as ChatMessage[];
     const instructions = this.messages.concat(nextInstructions);
-    const processor = new OpenAILanguageProgramProcessor(
-      {},
-      {
-        stop: `</${action}`,
-      },
-    );
-    const nextValue = (await processor.execute(instructions)).slice(
-      beginning.length,
-    );
+    const nextValue = (
+      await this.processor.execute(instructions, { stop: `</${action}` })
+    ).slice(beginning.length);
     const contextCompletion = [
       {
         role: "assistant",
@@ -225,10 +235,14 @@ ${beginning}${nextValue}</${action}></${this.entityName}>
         .split(",")
         .map((s) => toCamelCase(s)) as string[];
     }
-    return new CortexStep(this.entityName, {
-      lastValue: outputAsList ? parsedNextValue : nextValue,
-      memories: nextMemories,
-    } as PastCortexStep);
+    return new CortexStep(
+      this.entityName,
+      {
+        lastValue: outputAsList ? parsedNextValue : nextValue,
+        memories: nextMemories,
+      } as PastCortexStep,
+      this.options
+    );
   }
 
   public async queryMemory(query: string): Promise<string> {
@@ -247,13 +261,10 @@ Use the output format <UNFILTERED_ANSWER>[[fill in]]</UNFILTERED_ANSWER>
       },
     ] as ChatMessage[];
     const instructions = this.messages.concat(nextInstructions);
-    const processor = new OpenAILanguageProgramProcessor(
-      {},
-      { stop: "</UNFILTERED_ANSWER" },
-    );
-    return (await processor.execute(instructions)).replace(
-      "<UNFILTERED_ANSWER>",
-      "",
-    );
+    return (
+      await this.processor.execute(instructions, {
+        stop: "</UNFILTERED_ANSWER",
+      })
+    ).replace("<UNFILTERED_ANSWER>", "");
   }
 }
