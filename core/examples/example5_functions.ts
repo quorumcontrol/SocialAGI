@@ -4,11 +4,10 @@ import dotenv from "dotenv";
 import { Action, CortexStep } from "../src/cortexStep";
 import { ChatMessageRoleEnum } from "../src";
 import { FunctionRunner } from "../src/languageModels/functions";
-import { Memory } from "../src/languageModels/memory";
 
 dotenv.config();
 
-// this example demonstrates generalized reasoning about thought process against a goal
+// this example demonstrates adding function calls to a CoreStep.
 
 const blueprint = Blueprints.SAMANTHA;
 
