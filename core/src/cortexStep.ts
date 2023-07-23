@@ -1,5 +1,6 @@
 /* eslint-disable no-case-declarations */
-import { ChatMessage, LanguageModelProgramExecutor } from "./languageModels";
+import { ChatMessage, FunctionCall, FunctionSpecification, LanguageModelProgramExecutor, LanguageModelProgramExecutorExecuteOptions } from "./languageModels";
+import { FunctionRunner } from "./languageModels/functions";
 import { OpenAILanguageProgramProcessor } from "./languageModels/openAI";
 import { isAbstractTrue } from "./testing";
 import { devLog } from "./utils";
@@ -21,6 +22,9 @@ type DecisionSpec = {
 type BrainstormSpec = {
   actionsForIdea: string;
 };
+type CallFunctionSpec = {
+  functionCall: Partial<FunctionCall>;
+};
 type ActionCompletionSpec = {
   action: string;
   description?: string;
@@ -35,13 +39,15 @@ export enum Action {
   EXTERNAL_DIALOG,
   DECISION,
   BRAINSTORM_ACTIONS,
+  CALL_FUNCTION,
 }
 type NextSpec =
   | BrainstormSpec
   | DecisionSpec
   | ExternalDialogSpec
   | InternalMonologueSpec
-  | CustomSpec;
+  | CustomSpec
+  | CallFunctionSpec;
 type CortexNext = (step: CortexStep, spec: NextSpec) => Promise<CortexStep>;
 type NextActions = {
   [key: string]: CortexNext;
@@ -68,6 +74,7 @@ interface CortexStepOptions {
   memories?: WorkingMemory;
   lastValue?: CortexValue;
   extraNextActions?: NextActions;
+  functions?: FunctionRunner[];
 }
 
 // TODO - try something with fxn call api
@@ -79,6 +86,8 @@ export class CortexStep {
   public readonly entityName: string;
   public readonly memories: WorkingMemory;
 
+  public readonly functions: FunctionRunner[]
+
   constructor(entityName: string, options?: CortexStepOptions) {
     this.entityName = entityName;
     const pastCortexStep = options?.pastCortexStep;
@@ -88,6 +97,9 @@ export class CortexStep {
     this.extraNextActions = options?.extraNextActions || {
       ...(pastCortexStep?.extraNextActions || {}),
     };
+
+    this.functions = options?.functions || pastCortexStep?.functions || [];
+
     this.processor =
       options?.processor ||
       options?.pastCortexStep?.processor ||
@@ -103,6 +115,13 @@ export class CortexStep {
     return new CortexStep(this.entityName, {
       pastCortexStep: this,
       memories: nextMemories,
+    });
+  }
+
+  public withFunctions(functions: FunctionRunner[]): CortexStep {
+    return new CortexStep(this.entityName, {
+      pastCortexStep: this,
+      functions: functions,
     });
   }
 
@@ -186,12 +205,48 @@ export class CortexStep {
           description: `${this.entityName} brainstorms ideas for ${brainstormSpec.actionsForIdea}. Output as comma separated list, e.g. actions=[action1,action2]`,
           outputAsList: true,
         } as ActionCompletionSpec);
+      case Action.CALL_FUNCTION:
+        const callFunctionSpec = spec as CallFunctionSpec;
+
+        return this.callFunctionAction(callFunctionSpec);
     }
     if (Object.keys(this.extraNextActions).includes(type)) {
       return this.extraNextActions[type](this, spec);
     } else {
       throw new Error(`Unknown action type ${type}`);
     }
+  }
+
+  private async callFunctionAction(
+    spec: CallFunctionSpec
+  ): Promise<CortexStep> {
+    const { functionCall } = spec;
+
+    const resp = await this.processor.execute(this.messages, {
+      functionCall: { name: functionCall?.name || "" },
+    });
+
+    const funcCall = resp.functionCall
+    if (funcCall === undefined) {
+      throw new Error("expecting function call");
+    }
+
+    return this.executeFunction(funcCall)
+  }
+
+  private async executeFunction(functionCall: FunctionCall): Promise<CortexStep> {
+    const fn = this.functions.find((f) => f.specification.name === functionCall.name);
+    if (fn === undefined) {
+      console.error("functions: ", this.functions, "does not include ", functionCall)
+      throw new Error(`function ${functionCall.name} not found`);
+    }
+
+    const memories = await fn.run(JSON.parse(functionCall.arguments || "undefined")) || []
+
+    return new CortexStep(this.entityName, {
+      pastCortexStep: this,
+      lastValue: memories.slice(-1)[0].content,
+    }).withMemory(memories);
   }
 
   private async generateAction(
@@ -212,13 +267,23 @@ Reply in the output format: \`${beginning}[[fill in]]</${action}>\`. Double chec
     ] as ChatMessage[];
     const instructions = this.messages.concat(nextInstructions);
     devLog("instructions: " + instructions);
-    const { content: resp } = await this.processor.execute(instructions, {
-      stop: `</${action}`,
-    });
+    const { content: resp, functionCall } = await this.processor.execute(
+      instructions,
+      {
+        stop: `</${action}`,
+      },
+      this.functions.map((f) => f.specification),
+    );
     devLog("resp:", resp);
+
     if (!resp) {
-      throw new Error("missing response");
+      if (!functionCall) {
+        throw new Error("missing response and function call");
+      }
+      // console.log("function call!", functionCall)
+      return this.executeFunction(functionCall)
     }
+
     const nextValue = resp.replace(/^[^>]*>{0,1}[^>]*>/g, "");
     devLog("next value: ", nextValue);
     const contextCompletion = [
