@@ -52,7 +52,8 @@ type CortexNext = (step: CortexStep, spec: NextSpec) => Promise<CortexStep>;
 type NextActions = {
   [key: string]: CortexNext;
 };
-type CortexValue = null | string | string[];
+
+export type CortexValue = null | string | string[];
 
 function toCamelCase(str: string) {
   return str
@@ -74,7 +75,6 @@ interface CortexStepOptions {
   memories?: WorkingMemory;
   lastValue?: CortexValue;
   extraNextActions?: NextActions;
-  functions?: FunctionRunner[];
 }
 
 // TODO - try something with fxn call api
@@ -86,8 +86,6 @@ export class CortexStep {
   public readonly entityName: string;
   public readonly memories: WorkingMemory;
 
-  public readonly functions: FunctionRunner[]
-
   constructor(entityName: string, options?: CortexStepOptions) {
     this.entityName = entityName;
     const pastCortexStep = options?.pastCortexStep;
@@ -97,8 +95,6 @@ export class CortexStep {
     this.extraNextActions = options?.extraNextActions || {
       ...(pastCortexStep?.extraNextActions || {}),
     };
-
-    this.functions = options?.functions || pastCortexStep?.functions || [];
 
     this.processor =
       options?.processor ||
@@ -115,13 +111,6 @@ export class CortexStep {
     return new CortexStep(this.entityName, {
       pastCortexStep: this,
       memories: nextMemories,
-    });
-  }
-
-  public withFunctions(functions: FunctionRunner[]): CortexStep {
-    return new CortexStep(this.entityName, {
-      pastCortexStep: this,
-      functions: functions,
     });
   }
 
@@ -169,7 +158,8 @@ export class CortexStep {
 
   public async next(
     type: Action | string,
-    spec: NextSpec
+    spec: NextSpec,
+    functions: FunctionRunner[] = [],
   ): Promise<CortexStep> {
     switch (type) {
       case Action.INTERNAL_MONOLOGUE:
@@ -177,13 +167,15 @@ export class CortexStep {
         return this.generateAction({
           action: monologueSpec.action,
           description: monologueSpec.description,
-        } as ActionCompletionSpec);
+        } as ActionCompletionSpec,
+        functions);
       case Action.EXTERNAL_DIALOG:
         const dialogSpec = spec as ExternalDialogSpec;
         return this.generateAction({
           action: dialogSpec.action,
           description: dialogSpec.description,
-        } as ActionCompletionSpec);
+        } as ActionCompletionSpec,
+        functions);
       case Action.DECISION:
         const decisionSpec = spec as DecisionSpec;
         const choicesList = decisionSpec.choices.map((c) => "choice=" + c);
@@ -196,7 +188,8 @@ export class CortexStep {
           action: "decides",
           prefix: `choice=`,
           description: `${description}Choose one of: ${choicesString}`,
-        } as ActionCompletionSpec);
+        } as ActionCompletionSpec,
+        functions);
       case Action.BRAINSTORM_ACTIONS:
         const brainstormSpec = spec as BrainstormSpec;
         return this.generateAction({
@@ -204,11 +197,12 @@ export class CortexStep {
           prefix: "actions=[",
           description: `${this.entityName} brainstorms ideas for ${brainstormSpec.actionsForIdea}. Output as comma separated list, e.g. actions=[action1,action2]`,
           outputAsList: true,
-        } as ActionCompletionSpec);
+        } as ActionCompletionSpec,
+        functions);
       case Action.CALL_FUNCTION:
         const callFunctionSpec = spec as CallFunctionSpec;
 
-        return this.callFunctionAction(callFunctionSpec);
+        return this.callFunctionAction(callFunctionSpec, functions);
     }
     if (Object.keys(this.extraNextActions).includes(type)) {
       return this.extraNextActions[type](this, spec);
@@ -218,7 +212,8 @@ export class CortexStep {
   }
 
   private async callFunctionAction(
-    spec: CallFunctionSpec
+    spec: CallFunctionSpec,
+    functions: FunctionRunner[],
   ): Promise<CortexStep> {
     const { functionCall } = spec;
 
@@ -231,26 +226,27 @@ export class CortexStep {
       throw new Error("expecting function call");
     }
 
-    return this.executeFunction(funcCall)
+    return this.executeFunction(funcCall, functions)
   }
 
-  private async executeFunction(functionCall: FunctionCall): Promise<CortexStep> {
-    const fn = this.functions.find((f) => f.specification.name === functionCall.name);
+  private async executeFunction(functionCall: FunctionCall, functions:FunctionRunner[]): Promise<CortexStep> {
+    const fn = functions.find((f) => f.specification.name === functionCall.name);
     if (fn === undefined) {
-      console.error("functions: ", this.functions, "does not include ", functionCall)
+      console.error("functions: ", functions, "does not include ", functionCall)
       throw new Error(`function ${functionCall.name} not found`);
     }
 
-    const memories = await fn.run(JSON.parse(functionCall.arguments || "undefined")) || []
+    const { memories, lastValue } = await fn.run(JSON.parse(functionCall.arguments || "undefined")) || []
 
     return new CortexStep(this.entityName, {
       pastCortexStep: this,
-      lastValue: memories.slice(-1)[0].content,
+      lastValue: lastValue,
     }).withMemory(memories);
   }
 
   private async generateAction(
-    spec: ActionCompletionSpec
+    spec: ActionCompletionSpec,
+    functions: FunctionRunner[],
   ): Promise<CortexStep> {
     const { action, prefix, description, outputAsList } = spec;
     const beginning = `<${this.entityName}><${action}>${prefix || ""}`;
@@ -266,13 +262,13 @@ Reply in the output format: \`${beginning}[[fill in]]</${action}>\`. Double chec
       },
     ] as ChatMessage[];
     const instructions = this.messages.concat(nextInstructions);
-    devLog("instructions: " + instructions);
+    devLog("instructions: ", instructions, "functions: ", functions.map((f) => f.specification));
     const { content: resp, functionCall } = await this.processor.execute(
       instructions,
       {
         stop: `</${action}`,
       },
-      this.functions.map((f) => f.specification),
+      functions.map((f) => f.specification),
     );
     devLog("resp:", resp);
 
@@ -281,7 +277,7 @@ Reply in the output format: \`${beginning}[[fill in]]</${action}>\`. Double chec
         throw new Error("missing response and function call");
       }
       // console.log("function call!", functionCall)
-      return this.executeFunction(functionCall)
+      return this.executeFunction(functionCall, functions)
     }
 
     const nextValue = resp.replace(/^[^>]*>{0,1}[^>]*>/g, "");
