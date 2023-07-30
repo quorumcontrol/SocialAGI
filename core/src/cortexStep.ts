@@ -1,5 +1,5 @@
 /* eslint-disable no-case-declarations */
-import { ChatMessage, FunctionCall, FunctionSpecification, LanguageModelProgramExecutor, LanguageModelProgramExecutorExecuteOptions } from "./languageModels";
+import { ChatMessage, ChatMessageRoleEnum, FunctionCall, FunctionSpecification, LanguageModelProgramExecutor, LanguageModelProgramExecutorExecuteOptions } from "./languageModels";
 import { FunctionRunner } from "./languageModels/functions";
 import { OpenAILanguageProgramProcessor } from "./languageModels/openAI";
 import { isAbstractTrue } from "./testing";
@@ -25,6 +25,11 @@ type BrainstormSpec = {
 type CallFunctionSpec = {
   name: string
 };
+
+type ChooseFunctionSpec = {
+  additionalInstructions?: string
+}
+
 type ActionCompletionSpec = {
   action: string;
   description?: string;
@@ -40,6 +45,7 @@ export enum Action {
   DECISION,
   BRAINSTORM_ACTIONS,
   CALL_FUNCTION,
+  CHOOSE_FROM_FUNCTIONS,
 }
 type NextSpec =
   | BrainstormSpec
@@ -47,7 +53,8 @@ type NextSpec =
   | ExternalDialogSpec
   | InternalMonologueSpec
   | CustomSpec
-  | CallFunctionSpec;
+  | CallFunctionSpec
+  | ChooseFunctionSpec;
 type CortexNext = (step: CortexStep, spec: NextSpec) => Promise<CortexStep>;
 type NextActions = {
   [key: string]: CortexNext;
@@ -203,6 +210,9 @@ export class CortexStep {
         const callFunctionSpec = spec as CallFunctionSpec;
 
         return this.callFunctionAction(callFunctionSpec, functions);
+      case Action.CHOOSE_FROM_FUNCTIONS:
+        const chooseSpec = spec as ChooseFunctionSpec
+        return this.callAnyFunctionAction(chooseSpec, functions);
     }
     if (Object.keys(this.extraNextActions).includes(type)) {
       return this.extraNextActions[type](this, spec);
@@ -228,6 +238,43 @@ export class CortexStep {
     const funcCall = resp.functionCall
     if (funcCall === undefined) {
       throw new Error("expecting function call");
+    }
+
+    return this.executeFunction(funcCall, functions)
+  }
+
+  private async callAnyFunctionAction(
+    spec: ChooseFunctionSpec,
+    functions: FunctionRunner[],
+  ): Promise<CortexStep> {
+    const { additionalInstructions } = spec;
+
+    const resp = await this.processor.execute(
+      [
+        ...this.messages,
+        {
+          role: ChatMessageRoleEnum.User,
+          content: `Given the current context, choose a function to call. ${additionalInstructions}`
+        }
+      ],
+      {},
+      functions.map((f) => f.specification),
+    );
+
+    const funcCall = resp.functionCall
+    if (funcCall === undefined) {
+      return new CortexStep(this.entityName, {
+        pastCortexStep: this,
+        lastValue: resp.content,
+        memories: [
+          ...this.memories,
+          [{
+            role: ChatMessageRoleEnum.Assistant,
+            content: resp.content || "",
+          }]
+        ],
+      });
+
     }
 
     return this.executeFunction(funcCall, functions)
