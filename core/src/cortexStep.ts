@@ -246,35 +246,44 @@ export class CortexStep {
   private async callAnyFunctionAction(
     spec: ChooseFunctionSpec,
     functions: FunctionRunner[],
+    callNumber = 0
   ): Promise<CortexStep> {
     const { additionalInstructions } = spec;
 
+    const messages = [
+      ...this.messages,
+      {
+        role: ChatMessageRoleEnum.System,
+        content: `
+Please carefully consider the current state and thoughtfully choose a function to call.
+${additionalInstructions}
+
+Important: You MUST choose a function.
+`.trim()
+      }
+    ]
+
+    if (callNumber > 0) {
+      messages.push({
+        role: ChatMessageRoleEnum.Assistant,
+        content: "<THOUGHT>I made a mistake and did not choose a function to call, I will choose one this time.</THOUGHT>"
+      })
+    }
+
     const resp = await this.processor.execute(
-      [
-        ...this.messages,
-        {
-          role: ChatMessageRoleEnum.User,
-          content: `Given the current context, choose a function to call. ${additionalInstructions}`
-        }
-      ],
+      messages, 
       {},
       functions.map((f) => f.specification),
     );
 
     const funcCall = resp.functionCall
     if (funcCall === undefined) {
-      return new CortexStep(this.entityName, {
-        pastCortexStep: this,
-        lastValue: resp.content,
-        memories: [
-          ...this.memories,
-          [{
-            role: ChatMessageRoleEnum.Assistant,
-            content: resp.content || "",
-          }]
-        ],
-      });
-
+      if (callNumber > 3) {
+        console.error("error choosing a function: ", resp.content)
+        throw new Error("The LLM did not choose a function: " + (resp.content || ""))
+      }
+      devLog("retrying a choose function action: ", resp) 
+      return this.callAnyFunctionAction(spec, functions, callNumber + 1)
     }
 
     return this.executeFunction(funcCall, functions)
