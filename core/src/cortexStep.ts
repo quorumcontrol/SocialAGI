@@ -296,12 +296,17 @@ Important: You MUST choose a function.
       throw new Error(`function ${functionCall.name} not found`);
     }
 
-    const { memories, lastValue } = await fn.run(JSON.parse(functionCall.arguments || "undefined")) || []
+    try {
+      const { memories, lastValue } = await fn.run(JSON.parse(functionCall.arguments || "{}")) || []
 
-    return new CortexStep(this.entityName, {
-      pastCortexStep: this,
-      lastValue: lastValue,
-    }).withMemory(memories);
+      return new CortexStep(this.entityName, {
+        pastCortexStep: this,
+        lastValue: lastValue,
+      }).withMemory(memories);
+    } catch (err) {
+      console.error("error caling function: ", err, functionCall)
+      throw err
+    }
   }
 
   private async generateAction(
